@@ -1,0 +1,80 @@
+{
+ "runs": [
+  {
+   "encoder": "deepvk/USER-base",
+   "method": "KMeans k=40",
+   "phrases_per_s_cpu": 7,
+   "knn10_same_group": 0.855,
+   "nmi_keyword_groups": 0.471,
+   "clusters": 40,
+   "noise": 0.0
+  },
+  {
+   "encoder": "deepvk/USER-base",
+   "method": "KMeans k=50",
+   "phrases_per_s_cpu": 7,
+   "knn10_same_group": 0.855,
+   "nmi_keyword_groups": 0.482,
+   "clusters": 50,
+   "noise": 0.0
+  },
+  {
+   "encoder": "deepvk/USER-base",
+   "method": "KMeans k=60",
+   "phrases_per_s_cpu": 7,
+   "knn10_same_group": 0.855,
+   "nmi_keyword_groups": 0.478,
+   "clusters": 60,
+   "noise": 0.0
+  },
+  {
+   "encoder": "deepvk/USER-base",
+   "method": "HDBSCAN (PCA-50, min 30)",
+   "phrases_per_s_cpu": 7,
+   "knn10_same_group": 0.855,
+   "nmi_keyword_groups": 0.134,
+   "clusters": 8,
+   "noise": 0.907
+  },
+  {
+   "encoder": "sergeyzh/rubert-mini-frida",
+   "method": "KMeans k=40",
+   "phrases_per_s_cpu": 78,
+   "knn10_same_group": 0.893,
+   "nmi_keyword_groups": 0.532,
+   "clusters": 40,
+   "noise": 0.0
+  },
+  {
+   "encoder": "sergeyzh/rubert-mini-frida",
+   "method": "KMeans k=50",
+   "phrases_per_s_cpu": 78,
+   "knn10_same_group": 0.893,
+   "nmi_keyword_groups": 0.527,
+   "clusters": 50,
+   "noise": 0.0
+  },
+  {
+   "encoder": "sergeyzh/rubert-mini-frida",
+   "method": "KMeans k=60",
+   "phrases_per_s_cpu": 78,
+   "knn10_same_group": 0.893,
+   "nmi_keyword_groups": 0.525,
+   "clusters": 60,
+   "noise": 0.0
+  },
+  {
+   "encoder": "sergeyzh/rubert-mini-frida",
+   "method": "HDBSCAN (PCA-50, min 30)",
+   "phrases_per_s_cpu": 78,
+   "knn10_same_group": 0.893,
+   "nmi_keyword_groups": 0.012,
+   "clusters": 2,
+   "noise": 0.599
+  }
+ ],
+ "choice": {
+  "encoder": "sergeyzh/rubert-mini-frida",
+  "k": 40
+ }
+}
