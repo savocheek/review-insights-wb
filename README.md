@@ -28,6 +28,9 @@
 ```bash
 pip install -r requirements.txt
 python prepare_data.py   # → data/wb.parquet, data/rureviews_test.parquet, reports/data_stats.md
+python finetune.py       # ученик из sentiment-analysis-ru → models/wb_student (нужна папка ../ru-review-sentiment/model)
+python evaluate.py models/wb_student --name wb_student   # WB-test + RuReviews-test → reports/eval.md
+bash scripts/stage2.sh   # всё вместе на GPU: дообучение, тест до/после, ONNX int8
 ```
 
 ## Лицензии данных
