@@ -2,13 +2,13 @@
 # Teacher labelling on the GPU, one llama.cpp server at a time (60 s cool-downs), every step resumable.
 #   MODE=full     14B labels 20k reviews twice (T 0.2 / 0.8), the checker verifies hard cases + 5% control
 #   MODE=control  14B labels once, the checker verifies only a random 5% (measures 14B's error)
-# Usage (from this repo's root): MODE=full CHECKER=Qwen3-32B-Q4_K_M.gguf CHECKER_NAME=32b bash scripts/teacher_queue.sh > teacher_queue.log 2>&1
+# Usage (from this repo's root): MODE=full CHECKER=Qwen3.8-27B-Q4_K_M.gguf CHECKER_NAME=qwen3.8-27b bash scripts/teacher_queue.sh > teacher_queue.log 2>&1
 #   for a non-Qwen checker add QWEN_FLAG=--no-qwen
 export PYTHONUNBUFFERED=1 PYTHONUTF8=1
 PY=${PY:-../ru-review-sentiment/.venv/Scripts/python.exe}
 LLAMA=/d/llm/llama-vulkan/llama-server.exe
 M=/d/llm/models
-MODE=${MODE:-full}; CHECKER=${CHECKER:-Qwen3-32B-Q4_K_M.gguf}; CHECKER_NAME=${CHECKER_NAME:-32b}
+MODE=${MODE:-full}; CHECKER=${CHECKER:-Qwen3.8-27B-Q4_K_M.gguf}; CHECKER_NAME=${CHECKER_NAME:-qwen3.8-27b}
 step() { echo "== $(date +%H:%M) $*"; }
 cool() { step "cool-down 60 s"; sleep 60; }
 

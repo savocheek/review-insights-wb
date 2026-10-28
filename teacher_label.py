@@ -7,8 +7,8 @@
   select   hard cases (~30–35%): the two passes disagree, long reviews, mixed sentiment, a borderline
            "needs reply", sarcasm/negation markers; plus a random 5% of the easy ones as a control
   verify   the checker gets the review and the labeller's JSON and answers {verdict, why, fixed}
-  merge    final label: the checker's fix where it checked, otherwise the labeller's; source = 14b / 32b-confirmed /
-           32b-fixed → data/teacher/labels.jsonl, reports/teacher_labels.md
+  merge    final label: the checker's fix where it checked, otherwise the labeller's; source = 14b / <checker>-confirmed /
+           <checker>-fixed (e.g. qwen3.8-27b-confirmed) → data/teacher/labels.jsonl, reports/teacher_labels.md
 Every step appends line by line and resumes after a crash.
 
 Usage: python teacher_label.py corpus | label --pass a|b [--workers 4] | select | verify [--workers 1] | merge
@@ -53,9 +53,11 @@ def jsonl(path):
     return [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines()] if path.exists() else []
 
 
-def post(port, messages, schema, temperature, max_tokens=1500):
+def post(port, messages, schema, temperature, max_tokens=1500, no_think_kwarg=False):
     body = {"messages": messages, "temperature": temperature, "top_p": 0.95, "max_tokens": max_tokens,
             "response_format": {"type": "json_schema", "json_schema": {"name": "out", "schema": schema}}}
+    if no_think_kwarg:  # the checker only (Qwen3.5+ / Gemma 4 templates); the 14B passes keep their exact requests
+        body["chat_template_kwargs"] = {"enable_thinking": False}
     req = urllib.request.Request(f"http://127.0.0.1:{port}/v1/chat/completions", json.dumps(body).encode(),
                                  {"Content-Type": "application/json"})
     t0 = time.time()
@@ -177,7 +179,7 @@ def verify(a):
         user = (f"Отзыв:\n{it['text']}\n\nРазбор другой модели:\n"
                 + (json.dumps(ans, ensure_ascii=False) if ans else "(модель не дала валидного ответа — сделай разбор сам)"))
         content, usage, sec = post(a.port, [{"role": "system", "content": VERIFY_SYSTEM},
-                                            {"role": "user", "content": ("/no_think\n" if a.qwen else "") + user}], VERIFY_SCHEMA, 0.2, 2000)
+                                            {"role": "user", "content": ("/no_think\n" if a.qwen else "") + user}], VERIFY_SCHEMA, 0.2, 2000, no_think_kwarg=True)
         obj = parse(content)
         ok = isinstance(obj, dict) and obj.get("verdict") in ("согласен", "исправлено")
         fixed = obj.get("fixed") if ok else None
@@ -221,7 +223,7 @@ def merge(a):
     for g in ("трудный", "контроль 5%"):
         vs = [v for v in checked if v["group"] == g]
         md.append(f"| {g} | {len(vs):,} | {sum(v['verdict'] == 'исправлено' for v in vs) / max(len(vs), 1):.1%} |")
-    md.append("\nДоля исправлений на случайных 5% «лёгких» — оценка ошибки 14B там, где 32B не проверял.\n")
+    md.append("\nДоля исправлений на случайных 5% «лёгких» — оценка ошибки 14B там, где проверяющий не смотрел.\n")
     why = Counter(x for v in checked if v["group"] == "трудный" for x in v["why_selected"])
     fixed_by = Counter(x for v in checked if v["group"] == "трудный" and v["verdict"] == "исправлено" for x in v["why_selected"])
     md += ["| Почему отобран как трудный | Отзывов | Исправлено |", "|---|---|---|"]
