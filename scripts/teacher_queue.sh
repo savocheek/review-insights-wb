@@ -21,7 +21,7 @@ serve() {  # gguf, slots, ctx, log
 
 [ -f data/teacher/corpus.jsonl ] || "$PY" teacher_label.py corpus
 step "14B labels (mode $MODE)"
-serve Qwen3-14B-Q4_K_M.gguf 4 16384 llm_server_teacher14.log
+serve Qwen3-14B-Q4_K_M.gguf 4 32768 llm_server_teacher14.log  # 8k per slot: prompt v2 with few-shot is ~4k tokens
 "$PY" teacher_label.py label --pass a --workers 4 || { step "!! label a failed"; kill $SERVER; exit 1; }
 [ "$MODE" = full ] && { "$PY" teacher_label.py label --pass b --workers 4 || { step "!! label b failed"; kill $SERVER; exit 1; }; }
 kill $SERVER; sleep 5

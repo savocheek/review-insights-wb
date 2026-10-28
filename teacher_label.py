@@ -2,7 +2,7 @@
 
   corpus   ~20k WB-train reviews: 1–3★ heavy, 4–5★ with a "но/минус/жаль…" turn, ~20% random; without the 500
            hand-labelling reviews (data/needs_reply_items.jsonl, the user's gold set) → data/teacher/corpus.jsonl
-  label    the labeller (llama.cpp server, grammar = llm_probe.SCHEMA), N parallel requests; --pass a|b:
+  label    the labeller (llama.cpp server, prompt v2 with few-shot, grammar = llm_probe.SCHEMA_V2), N parallel requests; --pass a|b:
            pass a at temperature 0.2, pass b at 0.8 (disagreement between them marks hard cases)
   select   hard cases (~30–35%): the two passes disagree, long reviews, mixed sentiment, a borderline
            "needs reply", sarcasm/negation markers; plus a random 5% of the easy ones as a control
@@ -26,7 +26,7 @@ from pathlib import Path
 import pandas as pd
 
 from complaints import TURN
-from llm_probe import PROBLEMS, REASON_LIST, SCHEMA, SENTIMENTS, SYSTEM, norm, parse, quotes, short, validate
+from llm_probe import SCHEMA_V2, fewshot_block, need_of, norm, parse, quotes, reasons_of, short, system, validate
 
 D = Path("data/teacher")
 N_CORPUS = 20_000
@@ -37,12 +37,13 @@ SARCASM = re.compile(r"\b(спасибо за|ну конечно|ага|суп�
 VERIFY_SCHEMA = {
     "type": "object", "additionalProperties": False, "required": ["verdict", "why", "fixed"],
     "properties": {"verdict": {"enum": ["согласен", "исправлено"]}, "why": {"type": "string"},
-                   "fixed": {"anyOf": [{"type": "null"}, SCHEMA]}}}
-VERIFY_SYSTEM = SYSTEM.split("\n\nФормат:")[0] + """
+                   "fixed": {"anyOf": [{"type": "null"}, SCHEMA_V2]}}}
+SYSTEM = system("v2")
+VERIFY_SYSTEM = SYSTEM.split("\n\nФормат:")[0] + "\n\nПримеры правильных разборов:\n\n" + fewshot_block() + """
 
 Тебе дают отзыв и разбор, который сделала другая модель. Проверь его по правилам выше: всё ли верно в problems
-(группы, цитаты дословно из отзыва, нет ли выдуманных или пропущенных проблем), в needs_reply (нужен ли ответ,
-причины) и в sentiment.
+(группы, цитаты дословно из отзыва, нет ли выдуманных или пропущенных проблем), в reasons (все ли причины и верны ли они), в needs_human (нужен ли живой человек сверх шаблона,
+объяснение why) и в sentiment.
 Если всё верно — {"verdict": "согласен", "why": "", "fixed": null}.
 Если есть ошибка — {"verdict": "исправлено", "why": "что исправлено, 3–12 слов", "fixed": <полный исправленный разбор
 в том же формате>}. Не исправляй мелочи вкуса (другая, но тоже точная цитата) — только ошибки по смыслу."""
@@ -107,7 +108,7 @@ def label(a):
     def one(it):
         user = "/no_think\nОтзыв:\n" + it["text"]
         content, usage, sec = post(a.port, [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}],
-                                   SCHEMA, temp)
+                                   SCHEMA_V2, temp)
         obj = parse(content)
         errs = ["no JSON"] if obj is None else validate(obj)
         return {"id": it["id"], "answer": obj if not errs else None, "errors": errs, "seconds": round(sec, 1),
@@ -118,8 +119,7 @@ def label(a):
 
 
 def signature(ans):
-    return ({p["problem"] for p in ans["problems"]}, ans["needs_reply"]["need"],
-            {r["reason"] for r in ans["needs_reply"]["reasons"]}, ans["sentiment"])
+    return ({p["problem"] for p in ans["problems"]}, need_of(ans), {r["reason"] for r in reasons_of(ans)}, ans["sentiment"])
 
 
 def select(a):
@@ -140,10 +140,10 @@ def select(a):
             why.append("длинный")
         if ra and ra["sentiment"] == "смешанный":
             why.append("смешанная тональность")
-        if ra and ra["needs_reply"]["need"] and {r["reason"] for r in ra["needs_reply"]["reasons"]} <= {"сильный негатив с конкретикой"}:
+        if ra and need_of(ra) and {r["reason"] for r in reasons_of(ra)} <= {"сильный негатив с конкретикой", "доставка Wildberries"}:
             why.append("пограничный ответ нужен")
-        if ra and not ra["needs_reply"]["need"] and it["stars"] <= 2:
-            why.append("1–2★ без ответа")
+        if ra and not need_of(ra) and it["stars"] <= 2 and len(reasons_of(ra)) >= 2:
+            why.append("1–2★, несколько причин, человек не нужен")
         if SARCASM.search(it["text"]):
             why.append("сарказм/ирония по признакам")
         if ra and A[i]["bad_quotes"]:
@@ -228,13 +228,13 @@ def merge(a):
     md += [f"| {k} | {n:,} | {fixed_by[k] / n:.0%} |" for k, n in why.most_common()]
     md += ["\n## Распределение итоговых меток\n"]
     probs = Counter(p["problem"] for r in final for p in r["label"]["problems"])
-    reas = Counter(x["reason"] for r in final for x in r["label"]["needs_reply"]["reasons"])
+    reas = Counter(x["reason"] for r in final for x in reasons_of(r["label"]))
     sent = Counter(r["label"]["sentiment"] for r in final)
-    need = sum(r["label"]["needs_reply"]["need"] for r in final)
-    md += [f"Нужен ответ: {need:,} из {len(final):,} ({need / max(len(final), 1):.0%}). Тональность: "
+    need = sum(need_of(r["label"]) for r in final)
+    md += [f"Нужен живой человек: {need:,} из {len(final):,} ({need / max(len(final), 1):.0%}). Тональность: "
            + ", ".join(f"{k} {n / len(final):.0%}" for k, n in sent.most_common()) + ".\n",
            "| Проблема | Упоминаний |", "|---|---|"] + [f"| {k} | {n:,} |" for k, n in probs.most_common()]
-    md += ["\n| Причина ответа | Отзывов |", "|---|---|"] + [f"| {k} | {n:,} |" for k, n in reas.most_common()]
+    md += ["\n| Причина (о чём отзыв) | Отзывов |", "|---|---|"] + [f"| {k} | {n:,} |" for k, n in reas.most_common()]
     md += ["\n## Типичные исправления (примеры)\n"]
     rng = random.Random(1)
     fixes = [v for v in checked if v["verdict"] == "исправлено"]
