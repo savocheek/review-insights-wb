@@ -102,8 +102,8 @@ def items(n):
     return rows[:n]
 
 
-def chat(port, text, think, grammar):
-    user = ("" if think else "/no_think\n") + f"Отзыв:\n{text}"
+def chat(port, text, think, grammar, qwen):
+    user = ("/no_think\n" if qwen and not think else "") + f"Отзыв:\n{text}"  # Qwen3 soft switch
     body = {"messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}],
             "temperature": 0.6 if think else 0.2, "top_p": 0.95, "max_tokens": 6000 if think else 1200}
     if grammar:
@@ -136,7 +136,8 @@ def run(a):
     for it in items(a.n):
         if it["id"] in done:
             continue
-        content, reasoning, usage, sec = chat(a.port, it["text"], a.think, grammar=not a.think)
+        content, reasoning, usage, sec = chat(a.port, it["text"], a.think, grammar=not a.think,
+                                                qwen="qwen" in a.name.lower())
         obj = parse(content)
         errs = ["no JSON"] if obj is None else validate(obj)
         bad_quotes = [q for q in (quotes(obj) if obj and not errs else []) if norm(q) not in norm(it["text"])]
