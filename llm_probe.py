@@ -303,7 +303,8 @@ def items(n, subset="first"):
 def chat(port, text, think, grammar, qwen, prompt="v1"):
     user = ("/no_think\n" if qwen and not think else "") + f"Отзыв:\n{text}"  # Qwen3 soft switch
     body = {"messages": [{"role": "system", "content": system(prompt)}, {"role": "user", "content": user}],
-            "temperature": 0.6 if think else 0.2, "top_p": 0.95, "max_tokens": 6000 if think else 1200}
+            "temperature": 0.6 if think else 0.2, "top_p": 0.95, "max_tokens": 6000 if think else 1200,
+            "chat_template_kwargs": {"enable_thinking": think}}  # Qwen3.5+ / Gemma 4 templates; others ignore it
     if grammar:
         body["response_format"] = {"type": "json_schema",
                                    "json_schema": {"name": "review", "schema": SCHEMA if prompt == "v1" else SCHEMA_V2}}

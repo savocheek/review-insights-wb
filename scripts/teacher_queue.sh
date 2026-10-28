@@ -23,9 +23,20 @@ serve() {  # gguf, slots, ctx, log
 step "14B labels (mode $MODE)"
 serve Qwen3-14B-Q4_K_M.gguf 4 32768 llm_server_teacher14.log  # 8k per slot: prompt v2 with few-shot is ~4k tokens
 "$PY" teacher_label.py label --pass a --workers 4 || { step "!! label a failed"; kill $SERVER; exit 1; }
-[ "$MODE" = full ] && { "$PY" teacher_label.py label --pass b --workers 4 || { step "!! label b failed"; kill $SERVER; exit 1; }; }
 kill $SERVER; sleep 5
 cool
+# an optional GPU window between the passes (e.g. a model probe); the file is removed after it ran
+if [ -f scripts/between_passes.sh ]; then
+  step "between passes: scripts/between_passes.sh"
+  bash scripts/between_passes.sh > between_passes.log 2>&1; rm -f scripts/between_passes.sh
+  cool
+fi
+if [ "$MODE" = full ]; then
+  serve Qwen3-14B-Q4_K_M.gguf 4 32768 llm_server_teacher14.log
+  "$PY" teacher_label.py label --pass b --workers 4 || { step "!! label b failed"; kill $SERVER; exit 1; }
+  kill $SERVER; sleep 5
+  cool
+fi
 
 step "select"
 if [ "$MODE" = full ]; then "$PY" teacher_label.py select; else "$PY" teacher_label.py select --control-only; fi
