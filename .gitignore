@@ -9,3 +9,7 @@ onnx*/
 *.safetensors
 *.onnx
 *.log
+*.npy
+*.npz
+*.parquet
+*.jsonl.gz
