@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+data/
+checkpoints/
+models/
+onnx*/
+*.pt
+*.pth
+*.safetensors
+*.onnx
+*.log
