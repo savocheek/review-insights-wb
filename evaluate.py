@@ -1,8 +1,10 @@
 """Sentiment quality on Wildberries (full split, product-level) and RuReviews test: macro-F1, accuracy, confusion.
 
 Any sentiment model works (the source project's multi-task models too: only their sentiment output is used).
-With --onnx the model's int8 ONNX is scored on CPU instead (WB on a stratified 30k sample, RuReviews in full).
-Results are appended to reports/eval.jsonl and the table is rebuilt in reports/eval.md.
+With --onnx the model's int8 ONNX is scored on CPU instead, on exactly the same data. WB is reported twice: the
+full split (natural class mix, 84% positive) and one fixed class-balanced sample of 30k from it (10k per class,
+the same reviews for every model and version). Results are appended to reports/eval.jsonl; reports/eval.md is
+rebuilt with the PyTorch and ONNX rows of a model next to each other.
 
 Usage: python evaluate.py MODEL_DIR [MODEL_DIR …] [--split test|val] [--onnx PATH --name NAME]
 """
@@ -21,15 +23,19 @@ from finetune import LABELS, predict
 RU = ["негатив", "нейтр.", "позитив"]
 
 
-def datasets(split, sample=None):
+BALANCED = 30_000
+
+
+def datasets(split):
+    """name → (texts, gold, {sub-name: row mask}); the balanced WB sample is a subset of the full split."""
     wb = pd.read_parquet("data/wb.parquet")
-    wb = wb[wb["split"] == split]
-    if sample:
-        wb = wb.groupby("label", group_keys=False).apply(lambda g: g.sample(min(len(g), sample // 3), random_state=0))
-    out = {f"WB-{split}": (wb["text"].tolist(), wb["label"].values)}
+    wb = wb[wb["split"] == split].reset_index(drop=True)
+    bal = wb.groupby("label", group_keys=False).apply(lambda g: g.sample(min(len(g), BALANCED // 3), random_state=0))
+    mask = wb.index.isin(bal.index)
+    out = {f"WB-{split}": (wb["text"].tolist(), wb["label"].values, {f"WB-{split}, сбаланс. {BALANCED // 1000}k": mask})}
     if split == "test":
         rr = pd.read_parquet("data/rureviews_test.parquet")
-        out["RuReviews-test"] = (rr["text"].tolist(), rr["label"].values)
+        out["RuReviews-test"] = (rr["text"].tolist(), rr["label"].values, {})
     return out
 
 
@@ -57,7 +63,14 @@ def metrics(gold, pred):
 
 
 def report():
-    rows = [json.loads(x) for x in Path("reports/eval.jsonl").read_text(encoding="utf-8").splitlines()]
+    rows = {}
+    for x in Path("reports/eval.jsonl").read_text(encoding="utf-8").splitlines():
+        r = json.loads(x)
+        rows[(r["model"], r["data"])] = r  # a re-run replaces the earlier row
+    data_order = {d: (not d.startswith("WB"), "сбаланс" in d) for _, d in rows}  # WB full, WB balanced, RuReviews
+    model_order = {m: i for i, m in enumerate(dict.fromkeys(m.removesuffix("_int8") for m, _ in rows))}
+    rows = sorted(rows.values(), key=lambda r: (data_order[r["data"]], model_order[r["model"].removesuffix("_int8")],
+                                                r["model"].endswith("_int8")))
     md = ["# Тональность на товарах\n", "| Модель | Набор | n | macro-F1 | accuracy | F1 негатив / нейтр. / позитив |",
           "|---|---|---|---|---|---|"]
     for r in rows:
@@ -79,7 +92,7 @@ def main():
     p.add_argument("--name")
     a = p.parse_args()
     Path("reports").mkdir(exist_ok=True)
-    data = datasets(a.split, sample=30_000 if a.onnx else None)
+    data = datasets(a.split)
     device = "cuda" if torch.cuda.is_available() and not a.onnx else "cpu"
     for m in a.models:
         tok = AutoTokenizer.from_pretrained(m)

@@ -19,6 +19,16 @@ until grep -qE "^== .* (done|!!)" stage2.log && ! ps -ef | grep -qE "[s]tage2.sh
 rm -f data/complaint_emb_*.npy  # embeddings of the smoke test, if any
 cool
 
+# stage 2 PyTorch rows were computed before evaluate.py scored the fixed balanced 30k WB sample: re-run them so
+# PyTorch and ONNX are compared on the same data (a re-run replaces the earlier row in reports/eval.md)
+step "stage 2: PyTorch on WB-test full + balanced 30k"
+SRC=../ru-review-sentiment
+"$PY" evaluate.py "$SRC/model" --name student_base | cut -c1-160
+"$PY" evaluate.py "$SRC/model_multi" --name teacher_large | cut -c1-160
+"$PY" evaluate.py "$SRC/model_multi_big" --name teacher_large_big | cut -c1-160
+"$PY" evaluate.py models/wb_student --name wb_student | cut -c1-160
+cool
+
 step "complaints (train)"
 "$PY" complaints.py > complaints.log 2>&1 || { step "!! complaints failed"; tail -20 complaints.log; exit 1; }
 tail -1 complaints.log
