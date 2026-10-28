@@ -24,7 +24,8 @@ SOURCE = "../ru-review-sentiment/model"
 WB = "models/wb_student"
 TURN = re.compile(r"\b(но|однако|минус|минусы|жаль|к сожалению|единственное|единственный|недостат|не очень|"
                   r"не понрав|разочар|брак|маломер|большемер)", re.I)
-NEG = -0.3  # polarity below this = negative phrase (as polarity_label in the reviews project)
+NEG = -0.7  # polarity below this = complaint; stricter than polarity_label (-0.3): context fragments of angry
+# reviews ("заказал мультик", "кто собирает заказы") score -0.3…-0.7 on a smoke sample
 
 
 def sentiment_model():
