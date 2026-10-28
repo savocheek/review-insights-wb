@@ -101,11 +101,13 @@ def main():
         else:
             model = AutoModelForSequenceClassification.from_pretrained(m).to(device)
             run = lambda texts: predict(model, tok, texts, device)
-        for name, (texts, gold) in data.items():
-            r = {"model": a.name or Path(m).name, "data": name, **metrics(gold, run(texts).argmax(1))}
-            print(json.dumps(r, ensure_ascii=False), flush=True)
-            with open("reports/eval.jsonl", "a", encoding="utf-8") as f:
-                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        for name, (texts, gold, subsets) in data.items():
+            pred = run(texts).argmax(1)
+            for sub, mask in [(name, np.ones(len(gold), bool)), *subsets.items()]:
+                r = {"model": a.name or Path(m).name, "data": sub, **metrics(gold[mask], pred[mask])}
+                print(json.dumps(r, ensure_ascii=False), flush=True)
+                with open("reports/eval.jsonl", "a", encoding="utf-8") as f:
+                    f.write(json.dumps(r, ensure_ascii=False) + "\n")
         if not a.onnx:
             del model
             torch.cuda.empty_cache()

@@ -19,14 +19,17 @@ until grep -qE "^== .* (done|!!)" stage2.log && ! ps -ef | grep -qE "[s]tage2.sh
 rm -f data/complaint_emb_*.npy  # embeddings of the smoke test, if any
 cool
 
-# stage 2 PyTorch rows were computed before evaluate.py scored the fixed balanced 30k WB sample: re-run them so
+# stage 2 rows were computed before evaluate.py scored the fixed balanced 30k WB sample: re-run them so
 # PyTorch and ONNX are compared on the same data (a re-run replaces the earlier row in reports/eval.md)
-step "stage 2: PyTorch on WB-test full + balanced 30k"
+step "stage 2: PyTorch and ONNX int8 on WB-test full + balanced 30k"
 SRC=../ru-review-sentiment
 "$PY" evaluate.py "$SRC/model" --name student_base | cut -c1-160
 "$PY" evaluate.py "$SRC/model_multi" --name teacher_large | cut -c1-160
 "$PY" evaluate.py "$SRC/model_multi_big" --name teacher_large_big | cut -c1-160
 "$PY" evaluate.py models/wb_student --name wb_student | cut -c1-160
+CPU="env DEVICE=cpu CUDA_VISIBLE_DEVICES= HIP_VISIBLE_DEVICES="
+$CPU "$PY" evaluate.py "$SRC/model" --onnx "$SRC/model/onnx/model.int8.onnx" --name student_base_int8 | cut -c1-160
+$CPU "$PY" evaluate.py models/wb_student --onnx models/wb_student/onnx/model.int8.onnx --name wb_student_int8 | cut -c1-160
 cool
 
 step "complaints (train)"
