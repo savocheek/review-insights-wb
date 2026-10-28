@@ -137,6 +137,31 @@ FEWSHOT = [
 FEWSHOT_IDS = {str(i) for i, _ in FEWSHOT}
 
 
+# v3: v2 with the "needs a person" rules tightened after 14B-v2 disagreed with the user on 10 of 43: problems at
+# delivery (wrong item, shortage, broken on arrival, not delivered) are settled by a WB return without the seller.
+NEED_V2 = """   need = true, только если при одном шаблонном ответе продавец потеряет деньги, покупателя или репутацию, или есть
+   риск для здоровья: покупатель ждёт решения (замена, возврат денег, компенсация), спорит с продавцом или ему
+   отказали, испорчен дорогой товар или набор, задан вопрос по товару, на который нужен ответ, есть вред здоровью.
+   need = false: мелкие недостатки, размер или товар просто не подошёл, покупатель уже сам оформил возврат или отказ,
+   претензии к доставке Wildberries без просьбы о решении, вкусовые оценки, похвала. Обычно живой человек нужен лишь
+   одному-двум отзывам из десяти."""
+NEED_V3 = """   need = true, только если при одном шаблонном ответе продавец потеряет деньги, покупателя или репутацию, или есть
+   риск для здоровья:
+   - покупатель прямо обращается к продавцу: задаёт вопрос по товару («может производитель разъяснит?») или просит
+     что-то сделать («не учитывайте в проценте выкупа», «верните деньги»);
+   - продавец или пункт выдачи отказали в возврате, покупатель спорит, грозит жалобой;
+   - вред или риск для здоровья (аллергия, сыпь, ребёнок, просрочка);
+   - товар сломался или развалился в использовании, и отзыв резко отпугнёт других покупателей;
+   - испорчен дорогой товар или набор, покупатель потерял деньги.
+   need = false:
+   - проблемы при получении — пришёл не тот товар, цвет или размер, пересорт, недостача, пришёл сломанным или разбитым,
+     не привезли: покупатель оформляет отказ или возврат через Wildberries, продавцу отвечать лично не нужно, даже если
+     покупатель возмущён, ставит много восклицательных знаков или пишет «разберитесь», «обратите внимание»;
+   - мелкие недостатки, размер или товар просто не подошёл, покупатель уже сам оформил возврат или отказ;
+   - претензии к доставке и упаковке, вкусовые оценки, эмоции без конкретики, похвала.
+   Обычно живой человек нужен лишь одному-двум отзывам из десяти; сомневаешься — need = false."""
+
+
 def fewshot_block():
     texts = {x["id"]: x["text"] for x in map(json.loads, Path("data/needs_reply_items.jsonl").read_text(encoding="utf-8").splitlines())}
     return "\n\n".join(f"Отзыв: {texts[i]}\nОтвет: {json.dumps(ans, ensure_ascii=False)}" for i, ans in FEWSHOT)
@@ -231,7 +256,31 @@ def quotes(obj):
 
 
 def system(prompt):
-    return SYSTEM if prompt == "v1" else SYSTEM_V2.replace("{FEWSHOT}", fewshot_block())
+    if prompt == "v1":
+        return SYSTEM
+    s = SYSTEM_V2 if prompt == "v2" else SYSTEM_V2.replace(NEED_V2, NEED_V3)
+    shots = fewshot_block()
+    if prompt == "v4":
+        shots += "\n\n" + "\n\n".join(f"Отзыв: {t}\nОтвет: {json.dumps(ans, ensure_ascii=False)}" for t, ans in FEWSHOT_INVENTED)
+    return s.replace("{FEWSHOT}", shots)
+
+
+# v4 = v3 + two invented reviews (not from the 500): an angry wrong-item delivery that still needs no person
+FEWSHOT_INVENTED = [
+    ("Прислали не тот размер!!! Заказывала 42, пришёл 48. Сколько можно, разберитесь уже со своими упаковщиками!!!",
+     {"problems": [{"quote": "Заказывала 42, пришёл 48", "problem": "пришло не то", "detail": ""}],
+      "reasons": [{"quote": "Прислали не тот размер", "reason": REASON_KEYS["delivery"]},
+                  {"quote": "разберитесь уже со своими упаковщиками", "reason": REASON_KEYS["wb_logistics"]}],
+      "needs_human": {"why": "пересорт при получении, возврат через Wildberries; возмущение не делает человека нужным",
+                      "need": False},
+      "sentiment": "негатив"}),
+    ("Коробка пришла пустая, где товар? Деньги списали. Отказалась на пункте выдачи.",
+     {"problems": [{"quote": "Коробка пришла пустая", "problem": "некомплект", "detail": ""}],
+      "reasons": [{"quote": "Коробка пришла пустая", "reason": REASON_KEYS["delivery"]},
+                  {"quote": "Отказалась на пункте выдачи", "reason": REASON_KEYS["wb_logistics"]}],
+      "needs_human": {"why": "недостача при получении, покупатель уже отказался — деньги вернутся", "need": False},
+      "sentiment": "негатив"}),
+]
 
 
 def gold_labels():
@@ -417,8 +466,10 @@ def report(a):
     md += gold_section(runs, texts)
     if meta.get("conclusion"):
         md += ["\n## Вывод\n", meta["conclusion"]]
-    md += ["\n## Промпт v2 (рекомендуемый)\n", "```", system("v2"), "```",
-           "\nJSON-схема (grammar llama.cpp): `llm_probe.SCHEMA_V2`.\n",
+    md += ["\n## Промпт v4 (рекомендуемый)\n",
+           "v2 = схема reasons + needs_human и 8 few-shot примеров из меток пользователя; v3 = v2 с уточнёнными правилами "
+           "need (проблемы при получении решает возврат WB); v4 = v3 + 2 придуманных примера (не из 500 отзывов).\n",
+           "```", system("v4"), "```", "\nJSON-схема (grammar llama.cpp): `llm_probe.SCHEMA_V2`.\n",
            "\n## Промпт v1 (первый прогон всех моделей)\n", "```", SYSTEM, "```", "\nJSON-схема: `llm_probe.SCHEMA`.\n",
            "## 20 примеров: отзыв → ответы моделей\n"]
     for it in items(200)[60:80]:
@@ -436,7 +487,7 @@ def main():
     p.add_argument("--port", type=int, default=8080)
     p.add_argument("--think", action="store_true")
     p.add_argument("--n", type=int, default=200)
-    p.add_argument("--prompt", choices=["v1", "v2"], default="v1")
+    p.add_argument("--prompt", choices=["v1", "v2", "v3", "v4"], default="v1")
     p.add_argument("--set", default="first", help="first | gold | random, or several joined by commas")
     a = p.parse_args()
     {"run": run, "blind": blind, "report": report}[a.cmd](a)

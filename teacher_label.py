@@ -2,7 +2,7 @@
 
   corpus   ~20k WB-train reviews: 1–3★ heavy, 4–5★ with a "но/минус/жаль…" turn, ~20% random; without the 500
            hand-labelling reviews (data/needs_reply_items.jsonl, the user's gold set) → data/teacher/corpus.jsonl
-  label    the labeller (llama.cpp server, prompt v2 with few-shot, grammar = llm_probe.SCHEMA_V2), N parallel requests; --pass a|b:
+  label    the labeller (llama.cpp server, prompt v4 with few-shot, grammar = llm_probe.SCHEMA_V2), N parallel requests; --pass a|b:
            pass a at temperature 0.2, pass b at 0.8 (disagreement between them marks hard cases)
   select   hard cases (~30–35%): the two passes disagree, long reviews, mixed sentiment, a borderline
            "needs reply", sarcasm/negation markers; plus a random 5% of the easy ones as a control
@@ -38,7 +38,7 @@ VERIFY_SCHEMA = {
     "type": "object", "additionalProperties": False, "required": ["verdict", "why", "fixed"],
     "properties": {"verdict": {"enum": ["согласен", "исправлено"]}, "why": {"type": "string"},
                    "fixed": {"anyOf": [{"type": "null"}, SCHEMA_V2]}}}
-SYSTEM = system("v2")
+SYSTEM = system("v4")
 VERIFY_SYSTEM = SYSTEM.split("\n\nФормат:")[0] + "\n\nПримеры правильных разборов:\n\n" + fewshot_block() + """
 
 Тебе дают отзыв и разбор, который сделала другая модель. Проверь его по правилам выше: всё ли верно в problems
