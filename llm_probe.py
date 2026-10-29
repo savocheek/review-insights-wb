@@ -255,12 +255,24 @@ def quotes(obj):
     return [p["quote"] for p in obj.get("problems", [])] + [r["quote"] for r in reasons_of(obj)]
 
 
+# v5 = v4 + two rules from the user's honest-batch labels (14B over-called need): Wildberries rules (buyout
+# percentage, paid refusal) and defects/wrong items/returns without an explicit request are need = false.
+# The «не учитывайте в проценте выкупа» example is dropped from the need = true list: it contradicts rule а.
+NEED_V5 = NEED_V3.replace("(«не учитывайте в проценте выкупа», «верните деньги»)", "(«верните деньги», «замените»)").replace(
+    "   Обычно живой человек нужен", """   - жалобы на правила Wildberries — процент выкупа, платный отказ или возврат, штрафы, сроки: причина «доставка
+     Wildberries», need = false, если в отзыве нет явной просьбы или вопроса к продавцу;
+   - брак, пересорт, некомплект или возврат без явной просьбы, без вопроса к продавцу и без отказа в возврате —
+     need = false, даже если товар сломался или испортился (это правило важнее пунктов про поломку и испорченный товар
+     выше; риск для здоровья — по-прежнему need = true); проблему всё равно отметь в problems и reasons.
+   Обычно живой человек нужен""")
+
+
 def system(prompt):
     if prompt == "v1":
         return SYSTEM
-    s = SYSTEM_V2 if prompt == "v2" else SYSTEM_V2.replace(NEED_V2, NEED_V3)
+    s = SYSTEM_V2 if prompt == "v2" else SYSTEM_V2.replace(NEED_V2, NEED_V5 if prompt == "v5" else NEED_V3)
     shots = fewshot_block()
-    if prompt == "v4":
+    if prompt in ("v4", "v5"):
         shots += "\n\n" + "\n\n".join(f"Отзыв: {t}\nОтвет: {json.dumps(ans, ensure_ascii=False)}" for t, ans in FEWSHOT_INVENTED)
     return s.replace("{FEWSHOT}", shots)
 
@@ -488,7 +500,7 @@ def main():
     p.add_argument("--port", type=int, default=8080)
     p.add_argument("--think", action="store_true")
     p.add_argument("--n", type=int, default=200)
-    p.add_argument("--prompt", choices=["v1", "v2", "v3", "v4"], default="v1")
+    p.add_argument("--prompt", choices=["v1", "v2", "v3", "v4", "v5"], default="v1")
     p.add_argument("--set", default="first", help="first | gold | random, or several joined by commas")
     a = p.parse_args()
     {"run": run, "blind": blind, "report": report}[a.cmd](a)

@@ -38,8 +38,14 @@ VERIFY_SCHEMA = {
     "type": "object", "additionalProperties": False, "required": ["verdict", "why", "fixed"],
     "properties": {"verdict": {"enum": ["согласен", "исправлено"]}, "why": {"type": "string"},
                    "fixed": {"anyOf": [{"type": "null"}, SCHEMA_V2]}}}
-SYSTEM = system("v4")
-VERIFY_SYSTEM = SYSTEM.split("\n\nФормат:")[0] + "\n\nПримеры правильных разборов:\n\n" + fewshot_block() + """
+SYSTEM = system("v4")  # the 14B labeller: both passes on v4
+
+
+def verify_system(prompt):  # the checker's rules follow its own prompt version (v4 or v5)
+    return system(prompt).split("\n\nФормат:")[0] + "\n\nПримеры правильных разборов:\n\n" + fewshot_block() + VERIFY_TASK
+
+
+VERIFY_TASK = """
 
 Тебе дают отзыв и разбор, который сделала другая модель. Проверь его по правилам выше: всё ли верно в problems
 (группы, цитаты дословно из отзыва, нет ли выдуманных или пропущенных проблем), в reasons (все ли причины и верны ли они), в needs_human (нужен ли живой человек сверх шаблона,
@@ -150,6 +156,8 @@ def select(a):
             why.append("сарказм/ирония по признакам")
         if ra and A[i]["bad_quotes"]:
             why.append("цитата не из текста")
+        if (ra and need_of(ra)) or (rb and need_of(rb)):  # 14B over-calls need (user labels): the checker sees them all
+            why.append("14B: нужен человек (a или b)")
         rows.append((i, why))
     hard = [(i, w) for i, w in rows if w]
     easy = [i for i, w in rows if not w]
@@ -172,13 +180,14 @@ def verify(a):
     A = {r["id"]: r for r in jsonl(D / "label_a.jsonl")}
     out = D / "verify.jsonl"
     done = {r["id"] for r in jsonl(out)}
-    todo = [t for t in jsonl(D / "to_verify.jsonl") if t["id"] not in done]
+    todo = [t for t in jsonl(D / "to_verify.jsonl") if t["id"] not in done][:a.limit or None]
+    vsys = verify_system(a.prompt)
 
     def one(t):
         it, ans = corpus_[t["id"]], A[t["id"]]["answer"]
         user = (f"Отзыв:\n{it['text']}\n\nРазбор другой модели:\n"
                 + (json.dumps(ans, ensure_ascii=False) if ans else "(модель не дала валидного ответа — сделай разбор сам)"))
-        content, usage, sec = post(a.port, [{"role": "system", "content": VERIFY_SYSTEM},
+        content, usage, sec = post(a.port, [{"role": "system", "content": vsys},
                                             {"role": "user", "content": ("/no_think\n" if a.qwen else "") + user}], VERIFY_SCHEMA, 0.2, 2000, no_think_kwarg=True)
         obj = parse(content)
         ok = isinstance(obj, dict) and obj.get("verdict") in ("согласен", "исправлено")
@@ -254,7 +263,9 @@ def main():
     p.add_argument("--pass", dest="pass_", choices=["a", "b"], default="a")
     p.add_argument("--port", type=int, default=8080)
     p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--limit", type=int, default=0, help="verify: check at most N (speed tests); 0 = all")
     p.add_argument("--checker", default="32b", help="name of the checking model in the source field")
+    p.add_argument("--prompt", choices=["v4", "v5"], default="v4", help="checker prompt version (name it in --checker)")
     p.add_argument("--no-qwen", dest="qwen", action="store_false", help="checker is not Qwen: no /no_think")
     p.add_argument("--control-only", action="store_true", help="select: only a random 5%% control set")
     a = p.parse_args()

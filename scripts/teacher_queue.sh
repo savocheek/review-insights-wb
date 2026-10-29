@@ -34,6 +34,7 @@ with_server() {
 }
 
 [ -f data/teacher/corpus.jsonl ] || "$PY" teacher_label.py corpus
+if [ -z "$SKIP_LABEL" ]; then  # SKIP_LABEL=1: both 14B passes are complete, go straight to select/verify
 step "14B labels (mode $MODE)"
 # 8k per slot: prompt v2 with few-shot is ~4k tokens
 with_server Qwen3-14B-Q4_K_M.gguf 4 32768 llm_server_teacher14.log -- "$PY" teacher_label.py label --pass a --workers 4   || { step "!! label a failed"; exit 1; }
@@ -48,12 +49,19 @@ if [ "$MODE" = full ]; then
   with_server Qwen3-14B-Q4_K_M.gguf 4 32768 llm_server_teacher14.log -- "$PY" teacher_label.py label --pass b --workers 4     || { step "!! label b failed"; exit 1; }
   cool
 fi
+fi
 
 step "select"
 if [ "$MODE" = full ]; then "$PY" teacher_label.py select; else "$PY" teacher_label.py select --control-only; fi
 
-step "checker $CHECKER_NAME"
-with_server "$CHECKER" 1 8192 "llm_server_teacher_$CHECKER_NAME.log" --   "$PY" teacher_label.py verify --workers 1 --checker "$CHECKER_NAME" $QWEN_FLAG || { step "!! verify failed"; exit 1; }
+[ -n "$STOP_BEFORE_VERIFY" ] && { step "stopped before verify (STOP_BEFORE_VERIFY)"; exit 0; }
+
+# CHECK_PROMPT v4|v5 (name it in CHECKER_NAME, it goes to the source field); CHECK_SLOTS parallel requests, 8k each
+CHECK_PROMPT=${CHECK_PROMPT:-v4}; CHECK_SLOTS=${CHECK_SLOTS:-1}
+step "checker $CHECKER_NAME (prompt $CHECK_PROMPT, $CHECK_SLOTS slots)"
+with_server "$CHECKER" "$CHECK_SLOTS" $((8192 * CHECK_SLOTS)) "llm_server_teacher_$CHECKER_NAME.log" -- \
+  "$PY" teacher_label.py verify --workers "$CHECK_SLOTS" --checker "$CHECKER_NAME" --prompt "$CHECK_PROMPT" $QWEN_FLAG \
+  || { step "!! verify failed"; exit 1; }
 
 step "merge"
 "$PY" teacher_label.py merge
