@@ -602,6 +602,253 @@
    ],
    "unsure": false,
    "at": "2026-10-29T08:02:50.397Z"
+  },
+  {
+   "id": "1662123",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:30:06.426Z"
+  },
+  {
+   "id": "229652",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:30:14.926Z"
+  },
+  {
+   "id": "2142783",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:30:20.710Z"
+  },
+  {
+   "id": "167793",
+   "need": false,
+   "reasons": [
+    "defect",
+    "wb_logistics"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:30:31.727Z"
+  },
+  {
+   "id": "1150389",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:30:35.410Z"
+  },
+  {
+   "id": "2101450",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:30:44.960Z"
+  },
+  {
+   "id": "776939",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:31:00.660Z"
+  },
+  {
+   "id": "572470",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:31:04.693Z"
+  },
+  {
+   "id": "156948",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:31:10.177Z"
+  },
+  {
+   "id": "2203524",
+   "need": false,
+   "reasons": [
+    "wb_logistics",
+    "defect"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:31:25.877Z"
+  },
+  {
+   "id": "2170006",
+   "need": false,
+   "reasons": [
+    "misinfo"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:31:32.427Z"
+  },
+  {
+   "id": "1788210",
+   "need": false,
+   "reasons": [
+    "strong_negative"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:31:53.793Z"
+  },
+  {
+   "id": "345332",
+   "need": false,
+   "reasons": [
+    "refund",
+    "defect"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:32:13.543Z"
+  },
+  {
+   "id": "236878",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:32:30.693Z"
+  },
+  {
+   "id": "183115",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:32:34.393Z"
+  },
+  {
+   "id": "833718",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:32:42.377Z"
+  },
+  {
+   "id": "313885",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:32:49.294Z"
+  },
+  {
+   "id": "28314",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:32:59.626Z"
+  },
+  {
+   "id": "1980993",
+   "need": false,
+   "reasons": [
+    "defect"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:33:07.960Z"
+  },
+  {
+   "id": "982203",
+   "need": false,
+   "reasons": [
+    "wb_logistics"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:33:17.343Z"
+  },
+  {
+   "id": "1385503",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:33:33.443Z"
+  },
+  {
+   "id": "1770094",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:33:36.260Z"
+  },
+  {
+   "id": "1699629",
+   "need": false,
+   "reasons": [
+    "defect",
+    "wb_logistics"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:33:49.193Z"
+  },
+  {
+   "id": "1202751",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:33:53.993Z"
+  },
+  {
+   "id": "1902253",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:34:07.343Z"
+  },
+  {
+   "id": "1888270",
+   "need": false,
+   "reasons": [
+    "misinfo"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:34:34.013Z"
+  },
+  {
+   "id": "1741939",
+   "need": false,
+   "reasons": [
+    "safety",
+    "strong_negative",
+    "misinfo"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:34:52.510Z"
+  },
+  {
+   "id": "1316831",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:35:00.944Z"
+  },
+  {
+   "id": "1600675",
+   "need": false,
+   "reasons": [
+    "wb_logistics"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:35:11.011Z"
+  },
+  {
+   "id": "1845702",
+   "need": false,
+   "reasons": [
+    "safety"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:35:28.361Z"
+  },
+  {
+   "id": "373995",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:35:33.493Z"
   }
  ]
 }
