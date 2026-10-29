@@ -52,7 +52,8 @@ fi
 fi
 
 step "select"
-if [ "$MODE" = full ]; then "$PY" teacher_label.py select; else "$PY" teacher_label.py select --control-only; fi
+# SELECT_FLAGS=--need-only: check only the 14B need = yes cases (the rest → pending_rest.jsonl)
+if [ "$MODE" = full ]; then "$PY" teacher_label.py select $SELECT_FLAGS; else "$PY" teacher_label.py select --control-only; fi
 
 [ -n "$STOP_BEFORE_VERIFY" ] && { step "stopped before verify (STOP_BEFORE_VERIFY)"; exit 0; }
 

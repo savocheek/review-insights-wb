@@ -4,8 +4,9 @@
            hand-labelling reviews (data/needs_reply_items.jsonl, the user's gold set) → data/teacher/corpus.jsonl
   label    the labeller (llama.cpp server, prompt v4 with few-shot, grammar = llm_probe.SCHEMA_V2), N parallel requests; --pass a|b:
            pass a at temperature 0.2, pass b at 0.8 (disagreement between them marks hard cases)
-  select   hard cases (~30–35%): the two passes disagree, long reviews, mixed sentiment, a borderline
-           "needs reply", sarcasm/negation markers; plus a random 5% of the easy ones as a control
+  select   hard cases (~60%): the two passes disagree, long reviews, mixed sentiment, a borderline
+           "needs reply", sarcasm/negation markers, 14B need = yes in a or b; plus a random 5% of the easy ones as a
+           control; --need-only: hard = only the 14B need = yes ones, the other hard cases → pending_rest.jsonl
   verify   the checker gets the review and the labeller's JSON and answers {verdict, why, fixed}
   merge    final label: the checker's fix where it checked, otherwise the labeller's; source = 14b / <checker>-confirmed /
            <checker>-fixed (e.g. qwen3.8-27b-confirmed) → data/teacher/labels.jsonl, reports/teacher_labels.md
@@ -130,6 +131,9 @@ def signature(ans):
     return ({p["problem"] for p in ans["problems"]}, need_of(ans), {r["reason"] for r in reasons_of(ans)}, ans["sentiment"])
 
 
+NEED_WHY = "14B: нужен человек (a или b)"  # every a/b need disagreement has need = yes in one of them
+
+
 def select(a):
     corpus_ = {it["id"]: it for it in jsonl(D / "corpus.jsonl")}
     A = {r["id"]: r for r in jsonl(D / "label_a.jsonl")}
@@ -157,7 +161,7 @@ def select(a):
         if ra and A[i]["bad_quotes"]:
             why.append("цитата не из текста")
         if (ra and need_of(ra)) or (rb and need_of(rb)):  # 14B over-calls need (user labels): the checker sees them all
-            why.append("14B: нужен человек (a или b)")
+            why.append(NEED_WHY)
         rows.append((i, why))
     hard = [(i, w) for i, w in rows if w]
     easy = [i for i, w in rows if not w]
@@ -165,6 +169,12 @@ def select(a):
         hard, easy = [], [i for i, _ in rows]
     rng = random.Random(0)
     control = rng.sample(easy, int(0.05 * len(easy)))
+    if a.need_only:  # the user's call (29.10): check only the need cases, the rest waits in pending_rest.jsonl
+        rest = [(i, w) for i, w in hard if NEED_WHY not in w]
+        hard = [(i, w) for i, w in hard if NEED_WHY in w]
+        with (D / "pending_rest.jsonl").open("w", encoding="utf-8") as f:
+            f.writelines(json.dumps({"id": i, "group": "трудный", "why": w}, ensure_ascii=False) + "\n" for i, w in rest)
+        print(f"need only: {len(rest)} other hard cases → pending_rest.jsonl")
     with (D / "to_verify.jsonl").open("w", encoding="utf-8") as f:
         for i, w in hard:
             f.write(json.dumps({"id": i, "group": "трудный", "why": w}, ensure_ascii=False) + "\n")
@@ -267,6 +277,7 @@ def main():
     p.add_argument("--checker", default="32b", help="name of the checking model in the source field")
     p.add_argument("--prompt", choices=["v4", "v5"], default="v4", help="checker prompt version (name it in --checker)")
     p.add_argument("--no-qwen", dest="qwen", action="store_false", help="checker is not Qwen: no /no_think")
+    p.add_argument("--need-only", action="store_true", help="select: hard = only 14B need = yes (a or b); the rest → pending_rest.jsonl")
     p.add_argument("--control-only", action="store_true", help="select: only a random 5%% control set")
     a = p.parse_args()
     {"corpus": corpus, "label": label, "select": select, "verify": verify, "merge": merge}[a.cmd](a)
