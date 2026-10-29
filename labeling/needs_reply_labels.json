@@ -435,6 +435,173 @@
    "reasons": [],
    "unsure": false,
    "at": "2026-10-28T13:09:04.813Z"
+  },
+  {
+   "id": "890059",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-28T20:27:54.478Z"
+  },
+  {
+   "id": "1489303",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-28T20:31:09.231Z"
+  },
+  {
+   "id": "882318",
+   "need": false,
+   "reasons": [
+    "delivery",
+    "wb_logistics"
+   ],
+   "unsure": false,
+   "at": "2026-10-28T20:31:27.261Z"
+  },
+  {
+   "id": "1027755",
+   "need": false,
+   "reasons": [
+    "misinfo"
+   ],
+   "unsure": false,
+   "at": "2026-10-28T20:32:07.878Z"
+  },
+  {
+   "id": "734882",
+   "need": false,
+   "reasons": [
+    "wb_logistics",
+    "defect"
+   ],
+   "unsure": false,
+   "at": "2026-10-28T20:32:34.212Z"
+  },
+  {
+   "id": "1224616",
+   "need": true,
+   "reasons": [
+    "safety",
+    "defect"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T05:08:46.983Z"
+  },
+  {
+   "id": "701076",
+   "need": false,
+   "reasons": [
+    "wb_logistics",
+    "defect"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T07:35:39.378Z"
+  },
+  {
+   "id": "2046387",
+   "need": false,
+   "reasons": [
+    "strong_negative"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T07:36:11.314Z"
+  },
+  {
+   "id": "993052",
+   "need": false,
+   "reasons": [
+    "defect"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T07:36:32.832Z"
+  },
+  {
+   "id": "2135718",
+   "need": false,
+   "reasons": [
+    "defect",
+    "wb_logistics"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T07:36:54.148Z"
+  },
+  {
+   "id": "1466714",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T07:37:10.882Z"
+  },
+  {
+   "id": "1110172",
+   "need": false,
+   "reasons": [
+    "delivery"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T07:53:47.701Z"
+  },
+  {
+   "id": "2272417",
+   "need": false,
+   "reasons": [
+    "delivery",
+    "wb_logistics",
+    "strong_negative"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:01:46.147Z"
+  },
+  {
+   "id": "1510386",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:02:05.714Z"
+  },
+  {
+   "id": "2170784",
+   "need": false,
+   "reasons": [
+    "delivery",
+    "wb_logistics"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:02:16.180Z"
+  },
+  {
+   "id": "507675",
+   "need": false,
+   "reasons": [
+    "delivery"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:02:26.948Z"
+  },
+  {
+   "id": "567936",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:02:37.781Z"
+  },
+  {
+   "id": "1123421",
+   "need": false,
+   "reasons": [],
+   "unsure": false,
+   "at": "2026-10-29T08:02:43.947Z"
+  },
+  {
+   "id": "2117",
+   "need": false,
+   "reasons": [
+    "defect"
+   ],
+   "unsure": false,
+   "at": "2026-10-29T08:02:50.397Z"
   }
  ]
 }
