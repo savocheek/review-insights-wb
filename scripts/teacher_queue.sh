@@ -19,11 +19,24 @@ serve() {  # gguf, slots, ctx, log
   step "!! server did not start"; tail -20 "$4"; kill $SERVER; exit 1
 }
 
+# with_server gguf slots ctx log -- command...: every step resumes, so when the server stops answering
+# (it did twice during pass a/b, no error in its log) restart it and go on, up to 5 tries
+with_server() {
+  local gguf=$1 slots=$2 ctx=$3 log=$4; shift 5
+  for try in 1 2 3 4 5; do
+    serve "$gguf" "$slots" "$ctx" "$log"
+    "$@" && { kill $SERVER; sleep 5; return 0; }
+    step "retry $try: '$*' failed, restarting the server (its log kept as $log.fail$try)"
+    kill $SERVER; sleep 5; taskkill //F //IM llama-server.exe > /dev/null 2>&1; cp "$log" "$log.fail$try"
+    cool
+  done
+  return 1
+}
+
 [ -f data/teacher/corpus.jsonl ] || "$PY" teacher_label.py corpus
 step "14B labels (mode $MODE)"
-serve Qwen3-14B-Q4_K_M.gguf 4 32768 llm_server_teacher14.log  # 8k per slot: prompt v2 with few-shot is ~4k tokens
-"$PY" teacher_label.py label --pass a --workers 4 || { step "!! label a failed"; kill $SERVER; exit 1; }
-kill $SERVER; sleep 5
+# 8k per slot: prompt v2 with few-shot is ~4k tokens
+with_server Qwen3-14B-Q4_K_M.gguf 4 32768 llm_server_teacher14.log -- "$PY" teacher_label.py label --pass a --workers 4   || { step "!! label a failed"; exit 1; }
 cool
 # an optional GPU window between the passes (e.g. a model probe); the file is removed after it ran
 if [ -f scripts/between_passes.sh ]; then
@@ -32,9 +45,7 @@ if [ -f scripts/between_passes.sh ]; then
   cool
 fi
 if [ "$MODE" = full ]; then
-  serve Qwen3-14B-Q4_K_M.gguf 4 32768 llm_server_teacher14.log
-  "$PY" teacher_label.py label --pass b --workers 4 || { step "!! label b failed"; kill $SERVER; exit 1; }
-  kill $SERVER; sleep 5
+  with_server Qwen3-14B-Q4_K_M.gguf 4 32768 llm_server_teacher14.log -- "$PY" teacher_label.py label --pass b --workers 4     || { step "!! label b failed"; exit 1; }
   cool
 fi
 
@@ -42,9 +53,7 @@ step "select"
 if [ "$MODE" = full ]; then "$PY" teacher_label.py select; else "$PY" teacher_label.py select --control-only; fi
 
 step "checker $CHECKER_NAME"
-serve "$CHECKER" 1 8192 "llm_server_teacher_$CHECKER_NAME.log"
-"$PY" teacher_label.py verify --workers 1 --checker "$CHECKER_NAME" $QWEN_FLAG || { step "!! verify failed"; kill $SERVER; exit 1; }
-kill $SERVER; sleep 5
+with_server "$CHECKER" 1 8192 "llm_server_teacher_$CHECKER_NAME.log" --   "$PY" teacher_label.py verify --workers 1 --checker "$CHECKER_NAME" $QWEN_FLAG || { step "!! verify failed"; exit 1; }
 
 step "merge"
 "$PY" teacher_label.py merge
