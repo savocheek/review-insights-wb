@@ -9,6 +9,7 @@ onnx*/
 *.safetensors
 *.onnx
 *.log
+*.log.*
 *.npy
 *.npz
 *.parquet
