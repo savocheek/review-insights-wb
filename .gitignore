@@ -10,6 +10,8 @@ onnx*/
 *.onnx
 *.log
 *.log.*
+labeling/.annotation-backups/
+labeling/*.json.lock
 *.npy
 *.npz
 *.parquet

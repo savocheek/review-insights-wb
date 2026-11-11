@@ -3,7 +3,8 @@
 Four products of the niche (found by review text, the base has no categories): every review goes through the student
 (need score, reason probabilities, sentiment); Qwen3-14B (llama.cpp server on :8080, started separately) names
 4-6 "liked" and 3-5 "questions" themes per product with the reviews behind each theme; the share of a theme is
-counted from those reviews, quotes are checked to be in the review text. Names, phones, e-mails and links are masked.
+counted from those reviews. Unreviewed themes and supporting quotes are withheld from the public export;
+the raw output stays in data/demo_maternity/unreviewed_export.json. Names, phones, e-mails and links are masked.
 Usage (from the repo root):  python scripts/demo_maternity.py student   (GPU: the student)
                              python scripts/demo_maternity.py themes    (GPU: llama-server with Qwen3-14B)
                              python scripts/demo_maternity.py tag       (same server, 4 slots: every review × themes)
@@ -20,6 +21,7 @@ import pandas as pd
 
 sys.path.insert(0, ".")
 from llm_probe import REASON_KEYS, SENTIMENTS  # noqa: E402
+from demo_export import save_export  # noqa: E402
 
 PRODUCTS = {1017642: "бандаж для беременных", 11709626: "бандаж до и после родов",
             1169996: "колготки для беременных", 10009941: "сорочка для роддома и кормления"}
@@ -238,7 +240,10 @@ def build():
             "seller_answers": "template = after normalising (lower case, no names, digits, punctuation) equal or near "
                               "(difflib ratio >= 0.9 or common prefix >= 80%) to >= 2 other answers on the product",
             "privacy": "names, phones, e-mails and links masked in every quote"}
-    OUT.write_text(json.dumps({"meta": meta, "products": products}, ensure_ascii=False, indent=1), encoding="utf-8")
+    raw = {"meta": meta, "products": products}
+    # Preserve the unreviewed output locally for rechecking every theme assignment.
+    (D / "unreviewed_export.json").write_text(json.dumps(raw, ensure_ascii=False, indent=1), encoding="utf-8")
+    save_export(raw, OUT, OUT.with_suffix('.html'))
     print(f"wrote {OUT}: " + ", ".join(f"{x['nmId']} n={x['n']} need={x['need_human']['count']}" for x in products))
 
 

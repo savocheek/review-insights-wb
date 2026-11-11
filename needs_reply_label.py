@@ -1,107 +1,77 @@
-"""Local hand-labelling page (Gradio): does a WB review need a human answer from the seller, and why.
+"""Blind local annotation UI for labeling/*.json; run python needs_reply_label.py.
 
-One review per screen, the text only: stars and the seller's answer are hidden so they do not prompt. Reasons
-(docs/needs_reply.md) are pre-ticked by keyword rules — a draft to check. Any reason means "needs an answer",
-«ответ не нужен» excludes the reasons. Every answer is appended to data/needs_reply_labels.jsonl at once (last
-answer per id wins), so a restart resumes at the first unlabelled review.
-Hotkeys (any keyboard layout): 1…7 reasons, 0 «ответ не нужен», Enter save and next, Backspace back.
-
-Usage: python needs_reply_label.py [--port 7864]   (items: python needs_reply_prep.py)
+Need and problem reasons are independent human decisions. New items have no
+preselected decision or reasons. Human labels resume from canonical JSON.
 """
 import argparse
-import json
-import time
 from pathlib import Path
 
 import gradio as gr
 
-from needs_reply_prep import NONE, REASONS
+from annotation_store import AnnotationSession, REASONS
 
-CHOICES = [*REASONS, NONE]
-ITEMS = Path("data/needs_reply_items.jsonl")
-OUT = Path("data/needs_reply_labels.jsonl")
-
-HOTKEYS = """<script>
-document.addEventListener("keydown", (e) => {
-  if (e.target.tagName === "TEXTAREA" || (e.target.tagName === "INPUT" && e.target.type === "text")) return;
-  if (e.ctrlKey || e.altKey || e.metaKey) return;
-  const boxes = [...document.querySelectorAll("#reasons input[type=checkbox]")];
-  const digit = e.code.startsWith("Digit") ? +e.code.slice(5) : -1;
-  let hit = true;
-  if (digit >= 1 && digit <= 7) boxes[digit - 1]?.click();
-  else if (digit === 0) boxes[7]?.click();
-  else if (e.code === "Enter") document.querySelector("#save")?.click();
-  else if (e.code === "Backspace") document.querySelector("#back")?.click();
-  else hit = false;
-  if (hit) e.preventDefault();
-});
-</script>"""
+ROOT = Path(__file__).resolve().parent
+ITEMS = ROOT / 'labeling/needs_reply_items_enriched.json'
+OUT = ROOT / 'labeling/needs_reply_labels.json'
+YES = 'Нужен человек'
+NO = 'Хватит шаблона'
 
 
-def load():
-    done = {}
-    if OUT.exists():
-        for line in OUT.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                r = json.loads(line)
-                done[r["id"]] = r
-    return done
+def build_app(items_path=ITEMS, labels_path=OUT):
+    session = AnnotationSession(items_path, labels_path)
+
+    def show(index):
+        review = session.show(index)
+        need = None if review['need'] is None else YES if review['need'] else NO
+        status = f"{index + 1} / {review['total']} · размечено в этой партии: {review['completed']} / {review['total']}"
+        if review['completed'] == review['total']:
+            status += ' · Всё размечено'
+        return index, status, review['text'], need, review['reasons'], review['unsure'], ''
+
+    def save(index, decision, reasons, unsure):
+        if decision not in (YES, NO):
+            raise gr.Error('Выберите: нужен человек или хватит шаблона')
+        try:
+            session.save(index, decision == YES, reasons, unsure)
+        except (ValueError, OSError) as error:
+            raise gr.Error(f'Не удалось сохранить: {error}') from error
+        return session.first_open(index + 1)
+
+    with gr.Blocks(title='Нужен ответ человека') as demo:
+        gr.Markdown('## Нужен ли продавцу ответить лично?\n'
+                    'Решайте только по тексту. Причины и необходимость человека — независимые решения. '
+                    'Причины можно отметить и при ответе «хватит шаблона». Инструкция: docs/needs_reply.md.')
+        index = gr.State(session.first_open())
+        heading = gr.Textbox(label='Прогресс', interactive=False)
+        # Textbox renders literal review text, including any Markdown or HTML.
+        body = gr.Textbox(label='Текст отзыва', interactive=False, lines=10)
+        need = gr.Radio([YES, NO], value=None, label='Нужен ли живой человек сверх шаблона?')
+        reasons = gr.CheckboxGroup([(title, key) for key, title in REASONS.items()], value=[],
+                                   label='Проблемы в отзыве (независимо от ответа выше)')
+        unsure = gr.Checkbox(value=False, label='Сомневаюсь — требуется повторная проверка')
+        message = gr.Textbox(label='Сообщение', interactive=False)
+        with gr.Row():
+            back = gr.Button('← Назад')
+            go = gr.Button('Сохранить и дальше', variant='primary')
+            forward = gr.Button('Дальше без сохранения →')
+            resume = gr.Button('К первому неразмеченному')
+        outputs = [index, heading, body, need, reasons, unsure, message]
+        demo.load(show, index, outputs)
+        go.click(save, [index, need, reasons, unsure], index).success(show, index, outputs)
+        back.click(lambda i: max(i - 1, 0), index, index).then(show, index, outputs)
+        forward.click(lambda i: min(i + 1, len(session.items) - 1), index, index).then(show, index, outputs)
+        resume.click(session.first_open, None, index).then(show, index, outputs)
+    return demo
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=7864)
-    a = ap.parse_args()
-    items = [json.loads(x) for x in ITEMS.read_text(encoding="utf-8").splitlines()]
-
-    def first_open(start=0):
-        done = load()
-        for k in list(range(start, len(items))) + list(range(start)):
-            if items[k]["id"] not in done:
-                return k
-        return min(start, len(items) - 1)
-
-    def show(i):
-        done = load()
-        x, r = items[i], done.get(items[i]["id"])
-        head = (f"**{i + 1} / {len(items)}** · размечено {len(done)} из {len(items)}"
-                + (" · ✅ этот уже размечен" if r else " · галочки — черновик по ключевым словам, проверьте")
-                + (" · 🎉 всё размечено, можно закрывать" if len(done) == len(items) else ""))
-        value = (r["reasons"] or [NONE]) if r else (x["pre_reasons"] or [NONE])
-        return i, head, x["text"], gr.update(value=value), ""
-
-    def save(i, reasons):
-        if not reasons:
-            raise gr.Error("Отметьте причину или «ответ не нужен»")
-        reasons = [x for x in reasons if x != NONE]
-        rec = {"id": items[i]["id"], "need": bool(reasons), "reasons": reasons, "ts": round(time.time())}
-        with OUT.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        return first_open(i + 1), ""
-
-    with gr.Blocks(title="Нужен ответ человека") as demo:
-        gr.Markdown("## Нужен ли продавцу ответить на этот отзыв лично? Инструкция: docs/needs_reply.md")
-        idx = gr.State(first_open())
-        head = gr.Markdown()
-        body = gr.Markdown(elem_id="review")
-        reasons = gr.CheckboxGroup(CHOICES, label="Причины (1…7), «ответ не нужен» (0)", elem_id="reasons")
-        last = gr.State([])
-        msg = gr.Markdown()
-        with gr.Row():
-            back = gr.Button("← Назад (Backspace)", elem_id="back")
-            go = gr.Button("Сохранить и дальше (Enter)", variant="primary", elem_id="save")
-            skip = gr.Button("К первому неразмеченному")
-        outputs = [idx, head, body, reasons, msg]
-        # a reason and «ответ не нужен» exclude each other: the one just ticked wins
-        reasons.input(lambda new, old: [NONE] if NONE in new and NONE not in old else [x for x in new if x != NONE],
-                      [reasons, last], reasons)
-        reasons.change(lambda x: x, reasons, last)
-        demo.load(show, idx, outputs)
-        go.click(save, [idx, reasons], [idx, msg]).success(show, idx, outputs)
-        back.click(lambda i: max(i - 1, 0), idx, idx).then(show, idx, outputs)
-        skip.click(lambda: first_open(), None, idx).then(show, idx, outputs)
-    demo.launch(server_port=a.port, head=HOTKEYS, css="#review { font-size: 19px; line-height: 1.5; }")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--port', type=int, default=7864)
+    parser.add_argument('--items', type=Path, default=ITEMS, help='Batch JSON with an items array')
+    parser.add_argument('--labels', type=Path, default=OUT, help='Canonical JSON with a labels array')
+    args = parser.parse_args()
+    build_app(args.items, args.labels).launch(server_name='127.0.0.1', server_port=args.port, share=False)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

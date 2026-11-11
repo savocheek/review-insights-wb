@@ -6,3 +6,4 @@ scikit-learn
 torch
 transformers
 onnxruntime
+gradio>=6,<7
